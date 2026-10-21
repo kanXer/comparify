@@ -124,11 +124,6 @@ export async function fetchComparifyLiveFares(params: {
         Accept: 'application/json, text/plain, */*',
       };
 
-      if (clientIp) {
-        reqHeaders['X-Forwarded-For'] = clientIp;
-        reqHeaders['X-Real-IP'] = clientIp;
-      }
-
       const res = await axios.get(COMPARIFY_API_URL, {
         params: {
           pickupLocation: obfPickup,
@@ -164,14 +159,20 @@ export async function fetchComparifyLiveFares(params: {
       if (lastError) {
         const status = lastError.response?.status;
         const data = lastError.response?.data;
-        const title =
-          typeof data === 'string' && data.includes('<title>')
-            ? data.match(/<title>(.*?)<\/title>/i)?.[1]?.trim()
-            : undefined;
+        let snippet = '';
+        if (typeof data === 'string') {
+          snippet = data
+            .replace(/<style[\s\S]*?<\/style>/gi, '')
+            .replace(/<script[\s\S]*?<\/script>/gi, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 160);
+        } else if (data) {
+          snippet = JSON.stringify(data).slice(0, 160);
+        }
         statusCode = status || 502;
-        debugMsg = `Live Comparify API: ${lastError.message}${
-          status ? ` (HTTP ${status}${title ? ` - ${title}` : ''})` : ''
-        }`;
+        debugMsg = `Live Comparify API: HTTP ${status || 'ERR'} [${snippet || lastError.message}]`;
         console.warn('[ComparifyLive] Network/API Error:', debugMsg);
       } else if (payload?.message || payload?.error) {
         debugMsg = payload.message || payload.error;

@@ -34,12 +34,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Extract client IP (Vercel provides this in x-forwarded-for or x-real-ip)
-    const forwardedHeader = request.headers.get('x-forwarded-for');
-    const clientIp = forwardedHeader
-      ? forwardedHeader.split(',')[0].trim()
-      : request.headers.get('x-real-ip') || '49.43.118.3';
-
     // Step 1: Run Geocoding and Live City Rate Scraping CONCURRENTLY for lowest Vercel latency
     const [locationsAndRoute, cityRatesMeta] = await Promise.all([
       (async () => {
@@ -79,7 +73,6 @@ export async function POST(request: NextRequest) {
       drop: dropResolved,
       distanceKm: route.distanceKm,
       durationMinutes: route.durationMinutes,
-      clientIp,
     });
 
     if (
