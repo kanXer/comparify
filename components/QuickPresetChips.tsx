@@ -12,9 +12,9 @@ interface Preset {
 const CITY_PRESETS: Record<string, Preset[]> = {
   gorakhpur: [
     {
-      title: 'Railway Station → Golghar',
-      pickup: 'Junction Railway Station (gkp)',
-      drop: 'Golghar',
+      title: 'Gorakhnath Temple → Nauka Vihar 2.0',
+      pickup: 'Gorakhnath Temple',
+      drop: 'Nauka Vihar 2.0',
     },
     {
       title: 'Betiahata → Fertilizer Colony',
