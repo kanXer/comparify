@@ -1,4 +1,10 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "regions": ["bom1"]
+  "regions": ["bom1"],
+  "functions": {
+    "app/api/**/*": {
+      "regions": ["bom1"]
+    }
+  }
 }

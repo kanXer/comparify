@@ -72,6 +72,13 @@ export interface ComparifyLiveResult {
   statusCode?: number;
 }
 
+// In-memory cache for live quotes to prevent hitting API rate limits (90 seconds TTL)
+interface CachedQuotes {
+  result: ComparifyLiveResult;
+  expiresAt: number;
+}
+const quotesCache = new Map<string, CachedQuotes>();
+
 /**
  * Fetches real-time live quotes for Rapido and Bharat Taxi directly from comparify.pro API
  */
@@ -82,7 +89,14 @@ export async function fetchComparifyLiveFares(params: {
   durationMinutes: number;
   clientIp?: string;
 }): Promise<ComparifyLiveResult> {
-  const { pickup, drop, distanceKm, durationMinutes, clientIp } = params;
+  const { pickup, drop, distanceKm, durationMinutes } = params;
+
+  // 1. Check in-memory route cache first to avoid 429 rate limiting
+  const cacheKey = `${Number(pickup.lat).toFixed(3)},${Number(pickup.lon).toFixed(3)}->${Number(drop.lat).toFixed(3)},${Number(drop.lon).toFixed(3)}`;
+  const cached = quotesCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now() && cached.result.success) {
+    return cached.result;
+  }
 
   let payload: any = null;
   let lastError: any = null;
@@ -145,6 +159,15 @@ export async function fetchComparifyLiveFares(params: {
       }
     } catch (err: any) {
       lastError = err;
+      const isRateLimited =
+        err.response?.status === 429 ||
+        err.response?.data?.statusCode === 429 ||
+        err.response?.data?.error === 'Too Many Requests';
+
+      if (isRateLimited) {
+        break; // Do not retry if rate limited
+      }
+
       if (attempt === 1) {
         await new Promise((resolve) => setTimeout(resolve, 300));
       }
@@ -159,20 +182,31 @@ export async function fetchComparifyLiveFares(params: {
       if (lastError) {
         const status = lastError.response?.status;
         const data = lastError.response?.data;
-        let snippet = '';
-        if (typeof data === 'string') {
-          snippet = data
-            .replace(/<style[\s\S]*?<\/style>/gi, '')
-            .replace(/<script[\s\S]*?<\/script>/gi, '')
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/\s+/g, ' ')
-            .trim()
-            .slice(0, 160);
-        } else if (data) {
-          snippet = JSON.stringify(data).slice(0, 160);
+        const isRateLimited =
+          status === 429 ||
+          data?.statusCode === 429 ||
+          data?.error === 'Too Many Requests' ||
+          data?.message?.includes('temporarily blocked');
+
+        if (isRateLimited) {
+          statusCode = 429;
+          debugMsg = 'Live API rate limit reached (Too Many Requests). Please wait 30 seconds and retry.';
+        } else {
+          let snippet = '';
+          if (typeof data === 'string') {
+            snippet = data
+              .replace(/<style[\s\S]*?<\/style>/gi, '')
+              .replace(/<script[\s\S]*?<\/script>/gi, '')
+              .replace(/<[^>]+>/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim()
+              .slice(0, 160);
+          } else if (data) {
+            snippet = JSON.stringify(data).slice(0, 160);
+          }
+          statusCode = status || 502;
+          debugMsg = `Live Comparify API: HTTP ${status || 'ERR'} [${snippet || lastError.message}]`;
         }
-        statusCode = status || 502;
-        debugMsg = `Live Comparify API: HTTP ${status || 'ERR'} [${snippet || lastError.message}]`;
         console.warn('[ComparifyLive] Network/API Error:', debugMsg);
       } else if (payload?.message || payload?.error) {
         debugMsg = payload.message || payload.error;
@@ -293,13 +327,20 @@ export async function fetchComparifyLiveFares(params: {
       bharatTaxiRides.push(buildRideOption('bharat_taxi', 'cab_xl', btCabXLQuote, distanceKm, estimatedDuration));
     }
 
-    return {
+    const finalResult: ComparifyLiveResult = {
       rapidoRides,
       bharatTaxiRides,
       rawQuotes: quotes,
       direction: payload.direction,
       success: rapidoRides.length > 0 || bharatTaxiRides.length > 0,
     };
+
+    if (finalResult.success) {
+      // Cache valid live quotes for 90 seconds
+      quotesCache.set(cacheKey, { result: finalResult, expiresAt: Date.now() + 90000 });
+    }
+
+    return finalResult;
   } catch (error: any) {
     console.warn('[ComparifyLive] Error fetching live quotes:', error.message);
     return {
