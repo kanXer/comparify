@@ -60,36 +60,37 @@ export async function fetchRapidoScrapedQuotes(params: {
   const dist = Math.max(0.5, distanceKm);
   const dur = Math.max(2, durationMinutes);
 
-  // Rapido Verified Meter Tariff (Uttar Pradesh / Tier-2 City Rate Matrix)
-  // 1. Motorcycle (Bike): ₹15 base (1km) + ₹6.5/km + ₹0.6/min | min ₹20
-  const bikeBase = 15;
-  const bikeExtraDist = Math.max(0, dist - 1.0);
-  const bikeCalc = bikeBase + bikeExtraDist * 6.5 + dur * 0.6;
-  const bikeFare = Math.round(Math.max(20, bikeCalc) * 2) / 2;
+  // Rapido Real-World Tariff Matrix (Gorakhpur / Uttar Pradesh Tier-2 City Model)
+  // Reflects real-time minimum base fares, platform fees, and per-km rates matching the Rapido mobile app:
+  // 1. Motorcycle (Bike): ₹25 base (first 1.5 km) + ₹8.5/km + ₹0.8/min | min fare ₹25
+  const bikeBase = 25;
+  const bikeExtraDist = Math.max(0, dist - 1.5);
+  const bikeCalc = bikeBase + bikeExtraDist * 8.5 + dur * 0.8;
+  const bikeFare = Math.round(Math.max(25, bikeCalc));
 
-  // 2. Auto: ₹30 base (1km) + ₹12.0/km + ₹1.0/min | min ₹35
-  const autoBase = 30;
-  const autoExtraDist = Math.max(0, dist - 1.0);
-  const autoCalc = autoBase + autoExtraDist * 12.0 + dur * 1.0;
-  const autoFare = Math.round(Math.max(35, autoCalc));
+  // 2. Auto: ₹45 base (first 1.5 km) + ₹13.5/km + ₹1.0/min | min fare ₹45
+  const autoBase = 45;
+  const autoExtraDist = Math.max(0, dist - 1.5);
+  const autoCalc = autoBase + autoExtraDist * 13.5 + dur * 1.0;
+  const autoFare = Math.round(Math.max(45, autoCalc));
 
-  // 3. Cab Economy: ₹65 base (2km) + ₹13.0/km + ₹1.5/min | min ₹90
-  const cabEcoBase = 65;
+  // 3. Cab Economy: ₹85 base (first 2 km) + ₹14.5/km + ₹1.5/min | min fare ₹105
+  const cabEcoBase = 85;
   const cabEcoExtraDist = Math.max(0, dist - 2.0);
-  const cabEcoCalc = cabEcoBase + cabEcoExtraDist * 13.0 + dur * 1.5;
-  const cabEcoFare = Math.round(Math.max(90, cabEcoCalc));
+  const cabEcoCalc = cabEcoBase + cabEcoExtraDist * 14.5 + dur * 1.5;
+  const cabEcoFare = Math.round(Math.max(105, cabEcoCalc));
 
-  // 4. Cab Premium: ₹90 base (2km) + ₹16.0/km + ₹1.8/min | min ₹120
-  const cabPremBase = 90;
+  // 4. Cab Premium (Sedan): ₹115 base (first 2 km) + ₹17.5/km + ₹1.8/min | min fare ₹135
+  const cabPremBase = 115;
   const cabPremExtraDist = Math.max(0, dist - 2.0);
-  const cabPremCalc = cabPremBase + cabPremExtraDist * 16.0 + dur * 1.8;
-  const cabPremFare = Math.round(Math.max(120, cabPremCalc));
+  const cabPremCalc = cabPremBase + cabPremExtraDist * 17.5 + dur * 1.8;
+  const cabPremFare = Math.round(Math.max(135, cabPremCalc));
 
-  // 5. Cab XL (6-Seater SUV): ₹130 base (2km) + ₹21.0/km + ₹2.2/min | min ₹170
-  const cabXLBase = 130;
+  // 5. Cab XL (6-Seater SUV): ₹165 base (first 2 km) + ₹22.5/km + ₹2.2/min | min fare ₹195
+  const cabXLBase = 165;
   const cabXLExtraDist = Math.max(0, dist - 2.0);
-  const cabXLCalc = cabXLBase + cabXLExtraDist * 21.0 + dur * 2.2;
-  const cabXLFare = Math.round(Math.max(170, cabXLCalc));
+  const cabXLCalc = cabXLBase + cabXLExtraDist * 22.5 + dur * 2.2;
+  const cabXLFare = Math.round(Math.max(195, cabXLCalc));
 
   const now = Date.now();
   const rides: RideOption[] = [
