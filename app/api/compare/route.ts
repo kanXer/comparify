@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { geocodeAddress, calculateRouteDistance } from '@/lib/services/geocoding';
-import { scrapeBharatTaxiCityRates } from '@/lib/services/bharatTaxi';
 import { fetchBharatTaxiOfficialQuotes } from '@/lib/services/bharatTaxiOfficial';
 import { fetchRapidoScrapedQuotes } from '@/lib/services/rapidoScraper';
 import { buildStandardSchemaRows } from '@/lib/standardSchema';
@@ -35,38 +34,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Step 1: Run Geocoding and Live City Rate Scraping CONCURRENTLY for lowest Vercel latency
-    const [locationsAndRoute, cityRatesMeta] = await Promise.all([
-      (async () => {
-        // Concurrently resolve pickup and drop
-        const [pickupResolved, dropResolved] = await Promise.all([
-          typeof body.pickup === 'string'
-            ? geocodeAddress(body.pickup, city)
-            : isValidLocation(body.pickup)
-            ? Promise.resolve(body.pickup as LocationPoint)
-            : geocodeAddress(body.pickup.address || 'Junction Railway Station (gkp)', city),
-          typeof body.drop === 'string'
-            ? geocodeAddress(body.drop, city)
-            : isValidLocation(body.drop)
-            ? Promise.resolve(body.drop as LocationPoint)
-            : geocodeAddress(body.drop.address || 'Golghar', city),
-        ]);
-
-        // Calculate actual street route distance via OSRM
-        const route = await calculateRouteDistance(
-          pickupResolved.lat,
-          pickupResolved.lon,
-          dropResolved.lat,
-          dropResolved.lon
-        );
-
-        return { pickupResolved, dropResolved, route };
-      })(),
-      // Concurrently scrape / retrieve cached Bharat Taxi rates
-      scrapeBharatTaxiCityRates(city),
+    // Step 1: Concurrently resolve pickup and drop, and calculate street route distance
+    const [pickupResolved, dropResolved] = await Promise.all([
+      typeof body.pickup === 'string'
+        ? geocodeAddress(body.pickup, city)
+        : isValidLocation(body.pickup)
+        ? Promise.resolve(body.pickup as LocationPoint)
+        : geocodeAddress(body.pickup.address || 'Junction Railway Station (gkp)', city),
+      typeof body.drop === 'string'
+        ? geocodeAddress(body.drop, city)
+        : isValidLocation(body.drop)
+        ? Promise.resolve(body.drop as LocationPoint)
+        : geocodeAddress(body.drop.address || 'Golghar', city),
     ]);
 
-    const { pickupResolved, dropResolved, route } = locationsAndRoute;
+    const route = await calculateRouteDistance(
+      pickupResolved.lat,
+      pickupResolved.lon,
+      dropResolved.lat,
+      dropResolved.lon
+    );
 
     // Step 2: Fetch Official Bharat Taxi Live Quotes & Live Scraped Rapido Fares Concurrently
     const [bharatResult, rapidoResult] = await Promise.all([
@@ -186,7 +173,6 @@ export async function POST(request: NextRequest) {
         maxPossibleSavings,
         recommendedRide: cheapestOverall,
       },
-      liveRates: cityRatesMeta.meta,
     };
 
     return NextResponse.json(responsePayload, { status: 200 });
