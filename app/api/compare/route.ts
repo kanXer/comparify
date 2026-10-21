@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { geocodeAddress, calculateRouteDistance } from '@/lib/services/geocoding';
 import { scrapeBharatTaxiCityRates } from '@/lib/services/bharatTaxi';
-import { fetchComparifyLiveFares } from '@/lib/services/comparifyLive';
+import { fetchBharatTaxiOfficialQuotes } from '@/lib/services/bharatTaxiOfficial';
+import { fetchRapidoScrapedQuotes } from '@/lib/services/rapidoScraper';
 import { buildStandardSchemaRows } from '@/lib/standardSchema';
 import {
   FareComparisonResponse,
@@ -67,34 +68,37 @@ export async function POST(request: NextRequest) {
 
     const { pickupResolved, dropResolved, route } = locationsAndRoute;
 
-    // Step 2: Strictly Real-Time Live Quotes from comparify.pro API (NO FALLBACK)
-    const liveResult = await fetchComparifyLiveFares({
-      pickup: pickupResolved,
-      drop: dropResolved,
-      distanceKm: route.distanceKm,
-      durationMinutes: route.durationMinutes,
-    });
+    // Step 2: Fetch Official Bharat Taxi Live Quotes & Live Scraped Rapido Fares Concurrently
+    const [bharatResult, rapidoResult] = await Promise.all([
+      fetchBharatTaxiOfficialQuotes({
+        pickup: pickupResolved,
+        drop: dropResolved,
+        distanceKm: route.distanceKm,
+        durationMinutes: route.durationMinutes,
+        cityName: city,
+      }),
+      fetchRapidoScrapedQuotes({
+        pickup: pickupResolved,
+        drop: dropResolved,
+        distanceKm: route.distanceKm,
+        durationMinutes: route.durationMinutes,
+        cityName: city,
+      }),
+    ]);
 
-    if (
-      !liveResult.success ||
-      (liveResult.rapidoRides.length === 0 && liveResult.bharatTaxiRides.length === 0)
-    ) {
+    const rapidoRes = rapidoResult.rides;
+    const bharatRes = bharatResult.rides;
+
+    if (rapidoRes.length === 0 && bharatRes.length === 0) {
       return NextResponse.json(
         {
           success: false,
           error:
-            'Real-time quotes are currently unavailable from live APIs for this route. Strictly no fallback pricing is enabled.',
-          details: liveResult.debugError,
+            'Real-time quotes are currently unavailable from live APIs for this route.',
+          details: bharatResult.error,
         },
         { status: 502 }
       );
-    }
-
-    const rapidoRes = liveResult.rapidoRides;
-    const bharatRes = liveResult.bharatTaxiRides;
-
-    if (liveResult.direction?.timeInMins) {
-      route.durationMinutes = Math.round(liveResult.direction.timeInMins);
     }
 
     let allRides: RideOption[] = [...rapidoRes, ...bharatRes];
