@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { geocodeAddress, calculateRouteDistance } from '@/lib/services/geocoding';
 import { fetchBharatTaxiOfficialQuotes } from '@/lib/services/bharatTaxiOfficial';
-import { fetchRapidoScrapedQuotes } from '@/lib/services/rapidoScraper';
+import { fetchRapidoOfficialQuotes } from '@/lib/services/rapidoOfficial';
 import { buildStandardSchemaRows } from '@/lib/standardSchema';
 import {
   FareComparisonResponse,
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       dropResolved.lon
     );
 
-    // Step 2: Fetch Official Bharat Taxi Live Quotes & Live Scraped Rapido Fares Concurrently
+    // Step 2: Fetch Official Bharat Taxi & Official Rapido Live Quotes Concurrently
     const [bharatResult, rapidoResult] = await Promise.all([
       fetchBharatTaxiOfficialQuotes({
         pickup: pickupResolved,
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         durationMinutes: route.durationMinutes,
         cityName: city,
       }),
-      fetchRapidoScrapedQuotes({
+      fetchRapidoOfficialQuotes({
         pickup: pickupResolved,
         drop: dropResolved,
         distanceKm: route.distanceKm,
