@@ -131,7 +131,7 @@ export async function geocodeAddress(query: string, cityName = 'Gorakhpur, Uttar
         'User-Agent': 'BharatTaxiCompareApp/2.0 (ridefare@bharattaxi.local)',
         'Accept-Language': 'en',
       },
-      timeout: 4500,
+      timeout: 2000,
     });
 
     if (Array.isArray(response.data) && response.data.length > 0) {
@@ -238,7 +238,7 @@ export async function searchLocationSuggestions(
       'User-Agent': 'CamparifyRideComparison/1.0 (admin@camparify.in)',
       'Accept-Language': 'en,hi',
     },
-    timeout: 5000,
+    timeout: 2500,
   });
 
   const photonPromise = axios.get('https://photon.komoot.io/api/', {

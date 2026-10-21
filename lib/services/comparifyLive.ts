@@ -68,6 +68,8 @@ export interface ComparifyLiveResult {
   rawQuotes: ComparifyRawQuote[];
   direction?: { timeInMins: number };
   success: boolean;
+  debugError?: string;
+  statusCode?: number;
 }
 
 /**
@@ -78,8 +80,9 @@ export async function fetchComparifyLiveFares(params: {
   drop: LocationPoint;
   distanceKm: number;
   durationMinutes: number;
+  clientIp?: string;
 }): Promise<ComparifyLiveResult> {
-  const { pickup, drop, distanceKm, durationMinutes } = params;
+  const { pickup, drop, distanceKm, durationMinutes, clientIp } = params;
 
   let payload: any = null;
   let lastError: any = null;
@@ -112,21 +115,28 @@ export async function fetchComparifyLiveFares(params: {
         timestamp
       );
 
+      const reqHeaders: Record<string, string> = {
+        'X-Timestamp': timestamp,
+        'X-Signature': signature,
+        'X-Client-State': '1',
+        'X-App-Version': '2.0.2',
+        'User-Agent': 'okhttp/4.9.2',
+        Accept: 'application/json, text/plain, */*',
+      };
+
+      if (clientIp) {
+        reqHeaders['X-Forwarded-For'] = clientIp;
+        reqHeaders['X-Real-IP'] = clientIp;
+      }
+
       const res = await axios.get(COMPARIFY_API_URL, {
         params: {
           pickupLocation: obfPickup,
           dropLocation: obfDrop,
           includeServerResults: '1',
         },
-        headers: {
-          'X-Timestamp': timestamp,
-          'X-Signature': signature,
-          'X-Client-State': '1',
-          'X-App-Version': '2.0.2',
-          'User-Agent': 'okhttp/4.9.2',
-          Accept: 'application/json, text/plain, */*',
-        },
-        timeout: 12000,
+        headers: reqHeaders,
+        timeout: 8000,
       });
 
       payload = res.data;
@@ -141,7 +151,7 @@ export async function fetchComparifyLiveFares(params: {
     } catch (err: any) {
       lastError = err;
       if (attempt === 1) {
-        await new Promise((resolve) => setTimeout(resolve, 400));
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
     }
   }
@@ -149,10 +159,31 @@ export async function fetchComparifyLiveFares(params: {
   try {
     const quotes: ComparifyRawQuote[] = Array.isArray(payload?.quotes) ? payload.quotes : [];
     if (quotes.length === 0) {
+      let debugMsg = 'No active quotes returned for this route.';
+      let statusCode = 502;
       if (lastError) {
-        console.warn('[ComparifyLive] Network/API Error:', lastError.message);
+        const status = lastError.response?.status;
+        const data = lastError.response?.data;
+        const title =
+          typeof data === 'string' && data.includes('<title>')
+            ? data.match(/<title>(.*?)<\/title>/i)?.[1]?.trim()
+            : undefined;
+        statusCode = status || 502;
+        debugMsg = `Live Comparify API: ${lastError.message}${
+          status ? ` (HTTP ${status}${title ? ` - ${title}` : ''})` : ''
+        }`;
+        console.warn('[ComparifyLive] Network/API Error:', debugMsg);
+      } else if (payload?.message || payload?.error) {
+        debugMsg = payload.message || payload.error;
       }
-      return { rapidoRides: [], bharatTaxiRides: [], rawQuotes: [], success: false };
+      return {
+        rapidoRides: [],
+        bharatTaxiRides: [],
+        rawQuotes: [],
+        success: false,
+        debugError: debugMsg,
+        statusCode,
+      };
     }
 
     const estimatedDuration = Math.round(payload.direction?.timeInMins || durationMinutes);

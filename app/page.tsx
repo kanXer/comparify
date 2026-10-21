@@ -204,11 +204,12 @@ export default function HomePage() {
         setErrorMessage('Failed to fetch real-time fare comparison. Please verify locations.');
       }
     } catch (err: any) {
-      setErrorMessage(
-        err.response?.data?.error ||
-          err.message ||
-          'Failed to connect to real-time fare engine. Please retry.'
-      );
+      const serverDetails = err.response?.data?.details;
+      const serverError = err.response?.data?.error;
+      const msg = serverDetails
+        ? `${serverError} (${serverDetails})`
+        : serverError || err.message || 'Failed to connect to real-time fare engine. Please retry.';
+      setErrorMessage(msg);
     } finally {
       setIsLoading(false);
     }

@@ -41,7 +41,7 @@ export function getOlaMapsApiKey(): string {
   return (
     process.env.OLA_MAPS_API_KEY ||
     process.env.NEXT_PUBLIC_OLA_MAPS_API_KEY ||
-    ''
+    'vEkQvM8ZfTCOm6aTH3uEzo67o7IYQRhY1Nd7ilDU'
   ).trim();
 }
 
