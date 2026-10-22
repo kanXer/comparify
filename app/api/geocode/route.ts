@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchLocationSuggestions } from '@/lib/services/geocoding';
-import { fetchOlaMapsReverseGeocode } from '@/lib/services/olaMaps';
+import { fetchOlaMapsReverseGeocode, fetchOlaMapsPlaceDetails } from '@/lib/services/olaMaps';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -11,6 +11,26 @@ export async function GET(request: NextRequest) {
   const action = searchParams.get('action');
   const latStr = searchParams.get('lat');
   const lonStr = searchParams.get('lon');
+  const placeId = searchParams.get('place_id');
+
+  // Handle Place Details via Ola Maps
+  if (action === 'details' && placeId) {
+    try {
+      const details = await fetchOlaMapsPlaceDetails(placeId);
+      if (details) {
+        return NextResponse.json({
+          success: true,
+          details,
+          lat: details.lat,
+          lng: details.lng,
+          source: 'ola',
+        });
+      }
+    } catch (err: any) {
+      console.warn('[Geocode Route] Place details error:', err.message);
+    }
+    return NextResponse.json({ success: false, details: null }, { status: 404 });
+  }
 
   // Handle Reverse Geocode via Ola Maps
   if (action === 'reverse' || (latStr && lonStr && !searchParams.get('q'))) {

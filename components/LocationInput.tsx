@@ -42,6 +42,7 @@ export default function LocationInput({
   const [filterQuery, setFilterQuery] = useState('');
   const [liveSuggestions, setLiveSuggestions] = useState<SuggestionItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -53,7 +54,7 @@ export default function LocationInput({
     return Array.from(new Set([...defaultList, ...(localities || [])])).slice(0, 15);
   }, [city, localities]);
 
-  // Live OpenStreetMap Nominatim Geocoding API bounded strictly inside the city
+  // Live Ola Maps & OpenStreetMap Geocoding API bounded strictly inside the city
   useEffect(() => {
     const q = filterQuery.trim();
     if (q.length >= 2) {
@@ -91,28 +92,119 @@ export default function LocationInput({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = (item: { name: string; subtitle?: string; lat?: number; lon?: number }) => {
+  // Capture High-Accuracy Current GPS Coordinates via Browser Geolocation
+  const handleUseCurrentLocation = () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        console.log('[TEST] Browser GPS Geolocation captured:', {
+          latitude,
+          longitude,
+          accuracyMeters: accuracy,
+        });
+
+        let addressLabel = `My Current Location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
+        try {
+          // Reverse geocode via Ola Maps
+          const res = await axios.get(`/api/geocode?lat=${latitude}&lon=${longitude}&action=reverse`);
+          if (res.data?.address) {
+            addressLabel = res.data.address;
+          }
+        } catch (e) {
+          console.warn('[GPS Reverse Geocode] Error:', e);
+        }
+
+        onChange(addressLabel);
+        setIsOpen(false);
+        setIsLocating(false);
+
+        if (onSelectLocation) {
+          const locPoint: LocationPoint = {
+            address: addressLabel,
+            lat: latitude,
+            lon: longitude,
+            displayName: `${addressLabel}, ${city}`,
+            city,
+          };
+          console.log('[TEST] Coordinates set from GPS:', locPoint);
+          onSelectLocation(locPoint);
+        }
+      },
+      (error) => {
+        setIsLocating(false);
+        console.warn('[GPS Geolocation] Error:', error.message);
+        alert(`Could not acquire GPS location: ${error.message}. Please check browser permissions.`);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  };
+
+  const handleSelect = async (item: {
+    name: string;
+    subtitle?: string;
+    lat?: number;
+    lon?: number;
+    placeId?: string;
+    source?: 'ola' | 'osm' | 'local';
+  }) => {
     const cleanAddress = item.name.trim();
     onChange(cleanAddress);
     setFilterQuery('');
     setIsOpen(false);
 
-    if (onSelectLocation) {
-      let finalLat = item.lat;
-      let finalLon = item.lon;
-      if (!finalLat || !finalLon || finalLat === 0) {
-        const coords = getCoordinatesForLocality(cleanAddress, city);
-        finalLat = coords.lat;
-        finalLon = coords.lon;
-      }
+    let finalLat = item.lat;
+    let finalLon = item.lon;
 
-      onSelectLocation({
+    // If it is an Ola Maps item with placeId and coordinates missing, fetch exact place details
+    if (item.placeId && (!finalLat || !finalLon || finalLat === 0)) {
+      try {
+        const detRes = await axios.get(
+          `/api/geocode?action=details&place_id=${encodeURIComponent(item.placeId)}`
+        );
+        if (detRes.data?.details?.lat && detRes.data?.details?.lng) {
+          finalLat = detRes.data.details.lat;
+          finalLon = detRes.data.details.lng;
+        }
+      } catch (err) {
+        console.warn('[LocationInput] Error fetching exact place details:', err);
+      }
+    }
+
+    if (!finalLat || !finalLon || finalLat === 0) {
+      const coords = getCoordinatesForLocality(cleanAddress, city);
+      finalLat = coords.lat;
+      finalLon = coords.lon;
+    }
+
+    console.log('[TEST] Coordinates extracted from place picker:', {
+      name: cleanAddress,
+      lat: finalLat,
+      lon: finalLon,
+      source: item.source || 'ola',
+      placeId: item.placeId,
+    });
+
+    if (onSelectLocation && finalLat && finalLon) {
+      const point: LocationPoint = {
         address: cleanAddress,
         lat: finalLat,
         lon: finalLon,
-        displayName: item.subtitle ? `${cleanAddress}, ${item.subtitle}` : `${cleanAddress}, ${simpleCity}, India`,
+        displayName: item.subtitle
+          ? `${cleanAddress}, ${item.subtitle}`
+          : `${cleanAddress}, ${simpleCity}, India`,
         city,
-      });
+      };
+      onSelectLocation(point);
     }
   };
 
@@ -152,6 +244,20 @@ export default function LocationInput({
 
         <div className="absolute right-3 flex items-center gap-1.5">
           {isLoading && <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />}
+          {isLocating && <Loader2 className="w-4 h-4 text-emerald-500 animate-spin" />}
+          {!isLocating && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleUseCurrentLocation();
+              }}
+              className="p-1 rounded-full text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-gray-800 transition"
+              title="Use high-accuracy GPS current location"
+            >
+              <Compass className="w-4 h-4" />
+            </button>
+          )}
           {value && (
             <button
               type="button"
@@ -197,6 +303,33 @@ export default function LocationInput({
             </span>
           </div>
 
+          {/* High-Accuracy GPS Sensor Option */}
+          <button
+            type="button"
+            onClick={handleUseCurrentLocation}
+            disabled={isLocating}
+            className="w-full text-left px-4 py-2.5 bg-emerald-50/70 dark:bg-emerald-950/30 hover:bg-emerald-100/70 dark:hover:bg-emerald-900/50 text-xs flex items-center gap-3 transition border-b border-black/5 dark:border-white/5 group"
+          >
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              {isLocating ? (
+                <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+              ) : (
+                <Compass className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              )}
+            </div>
+            <div className="truncate flex-1">
+              <span className="font-bold block text-emerald-700 dark:text-emerald-300">
+                {isLocating ? 'Acquiring high-accuracy GPS coordinates...' : 'Use My Current Location (GPS)'}
+              </span>
+              <span className="text-emerald-600/80 dark:text-emerald-400/70 text-[10px] block">
+                Extracts exact device sensor latitude &amp; longitude
+              </span>
+            </div>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/30 shrink-0">
+              GPS Exact
+            </span>
+          </button>
+
           {/* Scrollable Results List */}
           <div className="overflow-y-auto flex-1 max-h-72 divide-y divide-black/5 dark:divide-white/5">
             {/* 1. Live Ola & OSM Results when user is typing */}
@@ -213,6 +346,8 @@ export default function LocationInput({
                         subtitle: item.subtitle,
                         lat: item.lat,
                         lon: item.lon,
+                        placeId: item.placeId,
+                        source: item.source,
                       })
                     }
                     className={`w-full text-left px-4 py-2.5 ${

@@ -138,6 +138,44 @@ export async function fetchOlaMapsAutocomplete(
 }
 
 /**
+ * Fetch exact place details (exact latitude, longitude, and formatted address) by place_id from Ola Maps
+ */
+export async function fetchOlaMapsPlaceDetails(placeId: string): Promise<{
+  lat: number;
+  lng: number;
+  formatted_address: string;
+  name: string;
+} | null> {
+  const apiKey = getOlaMapsApiKey();
+  if (!apiKey || !placeId) return null;
+
+  try {
+    const url = 'https://api.olamaps.io/places/v1/details';
+    const response = await axios.get(url, {
+      params: {
+        place_id: placeId,
+        api_key: apiKey,
+      },
+      httpsAgent: ipv4Agent,
+      timeout: 4500,
+    });
+
+    if (response.data?.status === 'ok' && response.data?.result?.geometry?.location) {
+      const loc = response.data.result.geometry.location;
+      return {
+        lat: Number(loc.lat),
+        lng: Number(loc.lng),
+        formatted_address: response.data.result.formatted_address || '',
+        name: response.data.result.name || '',
+      };
+    }
+  } catch (err: any) {
+    console.warn('[OlaMaps Details] Error:', err.message);
+  }
+  return null;
+}
+
+/**
  * Fetch reverse geocode address for coordinates using Ola Maps Places API
  */
 export async function fetchOlaMapsReverseGeocode(

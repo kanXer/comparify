@@ -18,8 +18,12 @@ export const preferredRegion = 'bom1'; // Deploy to Mumbai AWS/Vercel region for
 
 interface RequestBody {
   city?: string;
-  pickup: string | Partial<LocationPoint>;
-  drop: string | Partial<LocationPoint>;
+  pickup?: string | Partial<LocationPoint>;
+  drop?: string | Partial<LocationPoint>;
+  pickup_lat?: number;
+  pickup_lng?: number;
+  drop_lat?: number;
+  drop_lng?: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -27,25 +31,73 @@ export async function POST(request: NextRequest) {
     const body: RequestBody = await request.json();
     const city = body.city?.trim() || 'Gorakhpur, Uttar Pradesh';
 
-    if (!body.pickup || !body.drop) {
+    const pickupText =
+      typeof body.pickup === 'string'
+        ? body.pickup.trim()
+        : body.pickup?.address?.trim() || '';
+    const dropText =
+      typeof body.drop === 'string'
+        ? body.drop.trim()
+        : body.drop?.address?.trim() || '';
+
+    const hasPickupCoords =
+      typeof body.pickup_lat === 'number' &&
+      typeof body.pickup_lng === 'number' &&
+      !isNaN(body.pickup_lat) &&
+      !isNaN(body.pickup_lng) &&
+      body.pickup_lat !== 0 &&
+      body.pickup_lng !== 0;
+
+    const hasDropCoords =
+      typeof body.drop_lat === 'number' &&
+      typeof body.drop_lng === 'number' &&
+      !isNaN(body.drop_lat) &&
+      !isNaN(body.drop_lng) &&
+      body.drop_lat !== 0 &&
+      body.drop_lng !== 0;
+
+    if (!pickupText && !hasPickupCoords) {
+      return NextResponse.json(
+        { success: false, error: 'Both pickup and drop locations are required.' },
+        { status: 400 }
+      );
+    }
+    if (!dropText && !hasDropCoords) {
       return NextResponse.json(
         { success: false, error: 'Both pickup and drop locations are required.' },
         { status: 400 }
       );
     }
 
-    // Step 1: Concurrently resolve pickup and drop, and calculate street route distance
+    // Step 1: Concurrently resolve pickup and drop, preserving exact coordinates
     const [pickupResolved, dropResolved] = await Promise.all([
-      typeof body.pickup === 'string'
+      hasPickupCoords
+        ? Promise.resolve({
+            address: pickupText || `Location (${body.pickup_lat!.toFixed(4)}, ${body.pickup_lng!.toFixed(4)})`,
+            lat: body.pickup_lat!,
+            lon: body.pickup_lng!,
+            displayName: pickupText ? `${pickupText}, ${city}` : `Location (${body.pickup_lat!.toFixed(4)}, ${body.pickup_lng!.toFixed(4)})`,
+            city,
+          } as LocationPoint)
+        : typeof body.pickup === 'string'
         ? geocodeAddress(body.pickup, city)
         : isValidLocation(body.pickup)
         ? Promise.resolve(body.pickup as LocationPoint)
-        : geocodeAddress(body.pickup.address || 'Junction Railway Station (gkp)', city),
-      typeof body.drop === 'string'
+        : geocodeAddress(body.pickup?.address || 'Junction Railway Station (gkp)', city),
+
+      hasDropCoords
+        ? Promise.resolve({
+            address: dropText || `Location (${body.drop_lat!.toFixed(4)}, ${body.drop_lng!.toFixed(4)})`,
+            lat: body.drop_lat!,
+            lon: body.drop_lng!,
+            displayName: dropText ? `${dropText}, ${city}` : `Location (${body.drop_lat!.toFixed(4)}, ${body.drop_lng!.toFixed(4)})`,
+            city,
+          } as LocationPoint)
+        : typeof body.drop === 'string'
         ? geocodeAddress(body.drop, city)
         : isValidLocation(body.drop)
         ? Promise.resolve(body.drop as LocationPoint)
-        : geocodeAddress(body.drop.address || 'Golghar', city),
+        : geocodeAddress(body.drop?.address || 'Golghar', city),
     ]);
 
     const route = await calculateRouteDistance(
@@ -54,6 +106,33 @@ export async function POST(request: NextRequest) {
       dropResolved.lat,
       dropResolved.lon
     );
+
+    console.log('[TEST] Coordinates:', {
+      pickup: {
+        address: pickupResolved.address,
+        lat: pickupResolved.lat,
+        lng: pickupResolved.lon,
+      },
+      drop: {
+        address: dropResolved.address,
+        lat: dropResolved.lat,
+        lng: dropResolved.lon,
+      },
+      distance: route.distanceKm,
+    });
+    console.error('[TEST] Coordinates:', JSON.stringify({
+      pickup: {
+        address: pickupResolved.address,
+        lat: pickupResolved.lat,
+        lng: pickupResolved.lon,
+      },
+      drop: {
+        address: dropResolved.address,
+        lat: dropResolved.lat,
+        lng: dropResolved.lon,
+      },
+      distance: route.distanceKm,
+    }));
 
     // Step 2: Fetch Official Bharat Taxi & Official Rapido Live Quotes Concurrently
     const [bharatResult, rapidoResult] = await Promise.all([

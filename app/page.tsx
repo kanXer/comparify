@@ -181,15 +181,58 @@ export default function HomePage() {
       setIsLoading(true);
       setErrorMessage(null);
 
-      // Use existing coordinates if resolved via map click or autocomplete; otherwise pass address string for server-side Ola Maps geocoding
-      const pPoint = overridePickupPoint || pickupLocationPoint;
-      const dPoint = overrideDropPoint || dropLocationPoint;
+      // Resolve exact coordinates from points or verified database
+      let pPoint = overridePickupPoint || pickupLocationPoint;
+      let dPoint = overrideDropPoint || dropLocationPoint;
+
+      if (!pPoint || !pPoint.lat || !pPoint.lon || pPoint.lat === 0) {
+        const c = getCoordinatesForLocality(pVal.trim(), cityVal);
+        if (c && c.lat && c.lon) {
+          pPoint = {
+            address: pVal.trim(),
+            lat: c.lat,
+            lon: c.lon,
+            city: cityVal,
+            displayName: `${pVal.trim()}, ${cityVal}`,
+          };
+          setPickupLocationPoint(pPoint);
+        }
+      }
+
+      if (!dPoint || !dPoint.lat || !dPoint.lon || dPoint.lat === 0) {
+        const c = getCoordinatesForLocality(dVal.trim(), cityVal);
+        if (c && c.lat && c.lon) {
+          dPoint = {
+            address: dVal.trim(),
+            lat: c.lat,
+            lon: c.lon,
+            city: cityVal,
+            displayName: `${dVal.trim()}, ${cityVal}`,
+          };
+          setDropLocationPoint(dPoint);
+        }
+      }
+
+      const pLat = pPoint?.lat;
+      const pLng = pPoint?.lon;
+      const dLat = dPoint?.lat;
+      const dLng = dPoint?.lon;
 
       const payload = {
         city: cityVal,
-        pickup: pPoint && pPoint.lat && pPoint.lon && pPoint.lat !== 0 ? pPoint : pVal.trim(),
-        drop: dPoint && dPoint.lat && dPoint.lon && dPoint.lat !== 0 ? dPoint : dVal.trim(),
+        pickup: pVal.trim(),
+        drop: dVal.trim(),
+        pickup_lat: pLat,
+        pickup_lng: pLng,
+        drop_lat: dLat,
+        drop_lng: dLng,
       };
+
+      console.log('[TEST] Coordinates:', {
+        pickup: { address: pVal.trim(), lat: pLat, lng: pLng },
+        drop: { address: dVal.trim(), lat: dLat, lng: dLng },
+        distance: undefined,
+      });
 
       const response = await axios.post<FareComparisonResponse>('/api/compare', payload);
       if (response.data.success) {
@@ -200,6 +243,11 @@ export default function HomePage() {
         if (response.data.drop) {
           setDropLocationPoint(response.data.drop);
         }
+        console.log('[TEST] Coordinates:', {
+          pickup: response.data.pickup,
+          drop: response.data.drop,
+          distance: response.data.route?.distanceKm,
+        });
       } else {
         setErrorMessage('Failed to fetch real-time fare comparison. Please verify locations.');
       }
@@ -303,9 +351,25 @@ export default function HomePage() {
             localities={cityLocalities}
             onChange={(val) => {
               setPickup(val);
-              setPickupLocationPoint(undefined);
+              if (!val.trim()) {
+                setPickupLocationPoint(undefined);
+              } else {
+                const coords = getCoordinatesForLocality(val, selectedCity);
+                if (coords && coords.lat && coords.lon) {
+                  setPickupLocationPoint({
+                    address: val,
+                    lat: coords.lat,
+                    lon: coords.lon,
+                    city: selectedCity,
+                    displayName: `${val}, ${selectedCity}`,
+                  });
+                }
+              }
             }}
-            onSelectLocation={(loc) => setPickupLocationPoint(loc)}
+            onSelectLocation={(loc) => {
+              console.log('[TEST] Coordinates selected for Pickup:', loc);
+              setPickupLocationPoint(loc);
+            }}
             iconColor="text-blue-500"
           />
 
@@ -328,9 +392,25 @@ export default function HomePage() {
             localities={cityLocalities}
             onChange={(val) => {
               setDrop(val);
-              setDropLocationPoint(undefined);
+              if (!val.trim()) {
+                setDropLocationPoint(undefined);
+              } else {
+                const coords = getCoordinatesForLocality(val, selectedCity);
+                if (coords && coords.lat && coords.lon) {
+                  setDropLocationPoint({
+                    address: val,
+                    lat: coords.lat,
+                    lon: coords.lon,
+                    city: selectedCity,
+                    displayName: `${val}, ${selectedCity}`,
+                  });
+                }
+              }
             }}
-            onSelectLocation={(loc) => setDropLocationPoint(loc)}
+            onSelectLocation={(loc) => {
+              console.log('[TEST] Coordinates selected for Drop:', loc);
+              setDropLocationPoint(loc);
+            }}
             iconColor="text-rose-500"
           />
         </div>

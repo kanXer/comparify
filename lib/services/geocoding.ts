@@ -113,7 +113,24 @@ export async function geocodeAddress(query: string, cityName = 'Gorakhpur, Uttar
     console.warn(`[Geocoding] Ola Maps search fallback for "${trimmed}"`);
   }
 
-  // 2. Try Nominatim scoped strictly to this city
+  // 2. Check verified locality coordinates database
+  const verifiedCoords = getCoordinatesForLocality(trimmed, cityName);
+  if (
+    verifiedCoords &&
+    verifiedCoords.lat &&
+    verifiedCoords.lon &&
+    (Math.abs(verifiedCoords.lat - cityFocal.lat) > 0.0001 || Math.abs(verifiedCoords.lon - cityFocal.lon) > 0.0001)
+  ) {
+    return {
+      address: trimmed,
+      lat: verifiedCoords.lat,
+      lon: verifiedCoords.lon,
+      displayName: `${trimmed}, ${citySimple}, Uttar Pradesh, India`,
+      city: cityName,
+    };
+  }
+
+  // 3. Try Nominatim scoped strictly to this city
   try {
     const fullQuery = trimmed.toLowerCase().includes(citySimple.toLowerCase())
       ? `${trimmed}, India`
