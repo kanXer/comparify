@@ -2,7 +2,6 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { LocationPoint, RideOption } from '@/lib/types';
-import { fetchRapidoScrapedQuotes } from './rapidoScraper';
 
 const BASE_URL = 'https://customer.rapido.bike';
 const DEFAULT_TOKEN =
@@ -159,20 +158,18 @@ export async function fetchRapidoOfficialQuotes(params: {
       method: 'POST',
       headers,
       body: bodyStr,
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(18000),
     });
 
     if (!res.ok) {
       const errText = await res.text();
       console.warn(`[Rapido Official] API error ${res.status}: ${errText.slice(0, 100)}`);
-      // Fallback to calibrated tariff scraper
-      const fallback = await fetchRapidoScrapedQuotes(params);
       return {
-        rides: fallback.rides,
+        rides: [],
         rawQuotes: [],
-        success: fallback.success,
-        error: `Official API ${res.status}, used tariff fallback`,
-        isOfficialApi: false,
+        success: false,
+        error: `Rapido Official API HTTP ${res.status}: ${errText.slice(0, 100)}`,
+        isOfficialApi: true,
       };
     }
 
@@ -180,13 +177,12 @@ export async function fetchRapidoOfficialQuotes(params: {
     const rawQuotes: any[] = Array.isArray(data?.quotes) ? data.quotes : [];
 
     if (rawQuotes.length === 0) {
-      const fallback = await fetchRapidoScrapedQuotes(params);
       return {
-        rides: fallback.rides,
+        rides: [],
         rawQuotes: [],
-        success: fallback.success,
-        error: 'No active quotes in city, used tariff fallback',
-        isOfficialApi: false,
+        success: false,
+        error: 'No active quotes returned by Rapido Official API for this route.',
+        isOfficialApi: true,
       };
     }
 
@@ -377,13 +373,12 @@ export async function fetchRapidoOfficialQuotes(params: {
     };
   } catch (err: any) {
     console.warn('[Rapido Official] Error calling API:', err.message);
-    const fallback = await fetchRapidoScrapedQuotes(params);
     return {
-      rides: fallback.rides,
+      rides: [],
       rawQuotes: [],
-      success: fallback.success,
-      error: err.message,
-      isOfficialApi: false,
+      success: false,
+      error: `Rapido Official API Error: ${err.message}`,
+      isOfficialApi: true,
     };
   }
 }

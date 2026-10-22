@@ -79,6 +79,7 @@ export async function fetchBharatTaxiOfficialQuotes(params: {
         method: 'POST',
         headers: appHeaders(token),
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(18000),
       }
     );
 
