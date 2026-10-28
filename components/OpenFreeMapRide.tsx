@@ -688,7 +688,7 @@ export default function OpenFreeMapRide({
 
   return (
     <div
-      className={`rounded-3xl border shadow-xl relative transition-all duration-300 ${
+      className={`rounded-3xl border shadow-xl relative z-10 transition-all duration-300 ${
         isMapCollapsed ? 'p-3.5 sm:p-4 my-3' : 'p-4 sm:p-5 my-6'
       } ${
         theme === 'light'

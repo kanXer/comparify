@@ -332,7 +332,7 @@ export default function HomePage() {
       </header>
 
       {/* Main Glass Search Form */}
-      <div className="glass-panel rounded-3xl p-5 sm:p-7 border shadow-xl relative mb-6">
+      <div className="glass-panel rounded-3xl p-5 sm:p-7 border shadow-xl relative z-30 overflow-visible mb-6">
         {/* Step 1: City / District Selection FIRST */}
         <div className="pb-4 mb-4 border-b border-black/5 dark:border-white/10">
           <CityDistrictSelector

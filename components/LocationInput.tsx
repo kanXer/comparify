@@ -209,7 +209,7 @@ export default function LocationInput({
   };
 
   return (
-    <div className="relative w-full" ref={containerRef}>
+    <div className="relative z-30 w-full" ref={containerRef}>
       <div className="flex items-center justify-between mb-1.5">
         <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-gray-400 flex items-center gap-1.5">
           <span>{label}</span>
@@ -278,7 +278,7 @@ export default function LocationInput({
 
       {/* Autocomplete Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1.5 py-2 rounded-2xl glass-panel shadow-2xl border border-black/10 dark:border-white/10 max-h-84 overflow-hidden flex flex-col">
+        <div className="absolute z-[9999] w-full mt-1.5 py-2 rounded-2xl glass-panel shadow-2xl border border-black/10 dark:border-white/10 max-h-84 overflow-hidden flex flex-col">
           {/* Header & Status */}
           <div className="px-3.5 py-2 text-[11px] font-bold text-slate-500 dark:text-gray-400 border-b border-black/5 dark:border-white/5 flex items-center justify-between bg-slate-50/60 dark:bg-gray-900/60">
             <span className="flex items-center gap-1.5">
