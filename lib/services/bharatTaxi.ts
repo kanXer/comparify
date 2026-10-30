@@ -1,6 +1,7 @@
 import axios from 'axios';
 import https from 'https';
 import { LiveScrapedRates } from '@/lib/types';
+import { getLocalitiesForCity } from '@/lib/localitiesData';
 
 // Force IPv4 for fast, reliable connections
 const ipv4Agent = new https.Agent({
@@ -95,24 +96,11 @@ export async function fetchBharatTaxiLocalities(cityName: string): Promise<strin
     console.warn(`[BharatTaxi] Failed to fetch localities for ${cityName}:`, error.message);
   }
 
-  // Fallback for Gorakhpur if network unreachable
-  if (normalizedCity.toLowerCase().includes('gorakhpur')) {
-    return [
-      'Junction Railway Station (gkp)',
-      'Golghar',
-      'Betiahata',
-      'Basharatpur',
-      'Fertilizer Colony',
-      'Mohaddipur',
-      'Azad Nagar',
-      'Ashok Nagar',
-      'Daudpur',
-      'Hotel Bobina',
-      'Hotel Avantika',
-      'Medical College Road',
-      'Taramandal',
-      'Gorakhnath Temple Area',
-    ];
+  // Fallback to verified curated database for this city
+  const fallback = getLocalitiesForCity(normalizedCity);
+  if (fallback && fallback.length > 0) {
+    cache.localities.set(normalizedCity, fallback);
+    return fallback;
   }
 
   return [];

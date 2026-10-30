@@ -176,13 +176,20 @@ export async function fetchBharatTaxiOfficialQuotes(params: {
       });
     }
 
-    // 3. Cab Economy (Taxi)
-    const cabEcoEstimate = estimates.find(
-      (e) =>
-        e.serviceTierName === 'Cab Economy' ||
-        e.serviceTierType === 'TAXI' ||
-        e.vehicleVariant === 'TAXI'
-    );
+    // 3. Cab Economy (Taxi / Hatchback / Priority)
+    const cabEcoEstimate =
+      estimates.find(
+        (e) =>
+          e.serviceTierName === 'Cab Economy' ||
+          e.serviceTierType === 'TAXI' ||
+          e.vehicleVariant === 'TAXI'
+      ) ||
+      estimates.find(
+        (e) =>
+          e.serviceTierName === 'Cab Priority' ||
+          e.serviceTierType === 'HATCHBACK' ||
+          e.vehicleVariant === 'HATCHBACK'
+      );
     if (cabEcoEstimate && cabEcoEstimate.estimatedFare) {
       rides.push({
         id: `bharat_taxi-cab-${Date.now()}`,

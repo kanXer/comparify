@@ -225,7 +225,7 @@ export default function StandardFareTable({ comparisonData }: StandardFareTableP
                       </span>
                     )}
                     <span className="text-[9px] text-slate-400 block font-normal">
-                      Bharat Bike
+                      {bharatTaxiRow.motorcycle !== null ? 'Bharat Bike' : 'Not available'}
                     </span>
                   </div>
                 </td>
@@ -244,7 +244,7 @@ export default function StandardFareTable({ comparisonData }: StandardFareTableP
                       </span>
                     )}
                     <span className="text-[9px] text-slate-400 block font-normal">
-                      Bharat Auto
+                      {bharatTaxiRow.auto !== null ? 'Bharat Auto' : 'Not available'}
                     </span>
                   </div>
                 </td>

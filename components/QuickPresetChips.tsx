@@ -56,6 +56,28 @@ const CITY_PRESETS: Record<string, Preset[]> = {
       drop: 'Noida Sector 18',
     },
   ],
+  varanasi: [
+    {
+      title: 'Babatpur Airport → Sigra Market',
+      pickup: 'Lal Bahadur Shastri International Airport (Babatpur)',
+      drop: 'Sigra Market',
+    },
+    {
+      title: 'Varanasi Cantt → Dashashwamedh Ghat',
+      pickup: 'Varanasi Junction (BSB Cantonment)',
+      drop: 'Dashashwamedh Ghat',
+    },
+    {
+      title: 'BHU Gate → Kashi Vishwanath Temple',
+      pickup: 'Banaras Hindu University (BHU Gate)',
+      drop: 'Kashi Vishwanath Temple (Godowlia)',
+    },
+    {
+      title: 'Sigra Market → Sarnath Buddhist Complex',
+      pickup: 'Sigra Market',
+      drop: 'Sarnath Buddhist Complex',
+    },
+  ],
 };
 
 interface QuickPresetChipsProps {

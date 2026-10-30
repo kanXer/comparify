@@ -48,6 +48,8 @@ export const CITY_DEFAULT_LOCALITIES: Record<string, string[]> = {
     'Vikas Nagar',
     'Gorakhnath Temple',
     'Gorakhnath Temple Area',
+    'Shree Gorakhnath Temple',
+    'Tarang Bridge',
     'Nauka Vihar 2.0',
     'Nauka Vihar (Ramgarh Taal)',
     'Medical College Road (BRD)',
@@ -101,13 +103,17 @@ export const CITY_DEFAULT_LOCALITIES: Record<string, string[]> = {
     'Vasant Kunj (Ambience Mall)',
   ],
   varanasi: [
+    'Lal Bahadur Shastri International Airport (Babatpur)',
+    'Babatpur Airport',
+    'Varanasi College of Pharmacy',
+    'Sigra Market',
+    'Sigra Chauraha',
     'Varanasi Junction (BSB Cantonment)',
+    'Cantt Railway Station',
     'Kashi Vishwanath Temple (Godowlia)',
     'Dashashwamedh Ghat',
     'Assi Ghat',
     'Banaras Hindu University (BHU Gate)',
-    'Lal Bahadur Shastri International Airport (Babatpur)',
-    'Sigra Market',
     'Lanka (BHU Road)',
     'Sarnath Buddhist Complex',
     'Pandeypur',
@@ -170,6 +176,13 @@ export const CITY_LOCALITY_COORDINATES: Record<string, Record<string, [number, n
     'shahpur': [26.7780, 83.3790],
     'vikas nagar': [26.7850, 83.3820],
     'nanda nagar': [26.7420, 83.4180],
+    'tarang bridge': [26.7644, 83.3654],
+    'tranag bridge': [26.7644, 83.3654],
+    'tarang crossing': [26.7644, 83.3654],
+    'tarang': [26.7644, 83.3654],
+    'jatepur': [26.7644, 83.3654],
+    'shree gorakhnath temple': [26.7863, 83.3533],
+    'gorakhnath mandir': [26.7863, 83.3533],
   },
   lucknow: {
     'charbagh railway station (lko)': [26.8322, 80.9234],
@@ -221,15 +234,45 @@ export const CITY_LOCALITY_COORDINATES: Record<string, Record<string, [number, n
     'vasant kunj (ambience mall)': [28.5420, 77.1550],
   },
   varanasi: {
-    'varanasi junction (bsb cantonment)': [25.3280, 82.9860],
-    'kashi vishwanath temple (godowlia)': [25.3109, 83.0107],
-    'dashashwamedh ghat': [25.3070, 83.0100],
-    'assi ghat': [25.2885, 83.0060],
-    'banaras hindu university (bhu gate)': [25.2750, 82.9990],
-    'lal bahadur shastri international airport (babatpur)': [25.4520, 82.8590],
+    'lal bahadur shastri international airport (babatpur)': [25.4524, 82.8590],
+    'lal bahadur shastri airport': [25.4524, 82.8590],
+    'babatpur airport': [25.4524, 82.8590],
+    'babatpur': [25.4524, 82.8590],
+    'varanasi airport': [25.4524, 82.8590],
+    'airport': [25.4524, 82.8590],
+    'vns airport': [25.4524, 82.8590],
+    'varanasi college of pharmacy': [25.4353, 82.8614],
+    'pharmacy college': [25.4353, 82.8614],
     'sigra market': [25.3190, 82.9880],
+    'sigra': [25.3190, 82.9880],
+    'sigra chauraha': [25.3190, 82.9880],
+    'sigra crossing': [25.3190, 82.9880],
+    'sigra varanasi': [25.3190, 82.9880],
+    'varanasi junction (bsb cantonment)': [25.3280, 82.9860],
+    'varanasi junction': [25.3280, 82.9860],
+    'varanasi cantt': [25.3280, 82.9860],
+    'cantt railway station': [25.3280, 82.9860],
+    'bsb cantonment': [25.3280, 82.9860],
+    'kashi vishwanath temple (godowlia)': [25.3109, 83.0107],
+    'kashi vishwanath temple': [25.3109, 83.0107],
+    'godowlia': [25.3109, 83.0107],
+    'godowlia chauraha': [25.3109, 83.0107],
+    'dashashwamedh ghat': [25.3070, 83.0100],
+    'dashashwamedh': [25.3070, 83.0100],
+    'assi ghat': [25.2885, 83.0060],
+    'assi': [25.2885, 83.0060],
+    'banaras hindu university (bhu gate)': [25.2750, 82.9990],
+    'banaras hindu university': [25.2750, 82.9990],
+    'bhu': [25.2750, 82.9990],
+    'bhu gate': [25.2750, 82.9990],
     'lanka (bhu road)': [25.2810, 82.9990],
+    'lanka': [25.2810, 82.9990],
     'sarnath buddhist complex': [25.3715, 83.0250],
+    'sarnath': [25.3715, 83.0250],
+    'pandeypur': [25.3420, 82.9980],
+    'bhelupur': [25.2990, 82.9910],
+    'mahmoorganj': [25.3080, 82.9770],
+    'shivpur': [25.3620, 82.9610],
   },
 };
 
@@ -249,9 +292,30 @@ export function getCoordinatesForLocality(
       return { lat, lon };
     }
 
-    // Partial key match
+    // 2. Substring or inclusion match
     for (const [key, coords] of Object.entries(cityMap)) {
       if (locSlug.includes(key) || key.includes(locSlug)) {
+        return { lat: coords[0], lon: coords[1] };
+      }
+    }
+
+    // 3. Normalized keyword match (stripping punctuation/parentheses)
+    const cleanLoc = locSlug.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+    for (const [key, coords] of Object.entries(cityMap)) {
+      const cleanKey = key.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (cleanLoc.includes(cleanKey) || cleanKey.includes(cleanLoc)) {
+        return { lat: coords[0], lon: coords[1] };
+      }
+      // Check significant words (e.g. babatpur, sigra, sarnath, cantt)
+      const locTokens = cleanLoc.split(' ').filter((w) => w.length >= 4);
+      const keyTokens = cleanKey.split(' ').filter((w) => w.length >= 4);
+      const commonTokens = locTokens.filter((t) => keyTokens.includes(t));
+      if (
+        commonTokens.includes('babatpur') ||
+        commonTokens.includes('sigra') ||
+        commonTokens.includes('sarnath') ||
+        commonTokens.length >= 2
+      ) {
         return { lat: coords[0], lon: coords[1] };
       }
     }

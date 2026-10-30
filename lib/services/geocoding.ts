@@ -40,10 +40,10 @@ export const CITY_BOUNDING_BOXES: Record<string, { minLon: number; maxLat: numbe
     minLat: 28.40,
   },
   varanasi: {
-    minLon: 82.85,
-    maxLat: 25.45,
-    maxLon: 83.15,
-    minLat: 25.20,
+    minLon: 82.75,
+    maxLat: 25.55,
+    maxLon: 83.20,
+    minLat: 25.15,
   },
   kanpur: {
     minLon: 80.15,
@@ -96,24 +96,7 @@ export async function geocodeAddress(query: string, cityName = 'Gorakhpur, Uttar
   const cityKey = citySimple.toLowerCase();
   const cityFocal = CITY_CENTERS[cityKey] || { lat: 26.7606, lon: 83.3732 };
 
-  // 1. Try Ola Maps first if API key is present
-  try {
-    const olaResults = await fetchOlaMapsAutocomplete(trimmed, cityName);
-    if (olaResults.length > 0) {
-      const top = olaResults[0];
-      return {
-        address: trimmed,
-        lat: top.lat,
-        lon: top.lon,
-        displayName: top.subtitle,
-        city: cityName,
-      };
-    }
-  } catch {
-    console.warn(`[Geocoding] Ola Maps search fallback for "${trimmed}"`);
-  }
-
-  // 2. Check verified locality coordinates database
+  // 1. Check verified locality coordinates database first (locks to curated local points)
   const verifiedCoords = getCoordinatesForLocality(trimmed, cityName);
   if (
     verifiedCoords &&
@@ -128,6 +111,31 @@ export async function geocodeAddress(query: string, cityName = 'Gorakhpur, Uttar
       displayName: `${trimmed}, ${citySimple}, Uttar Pradesh, India`,
       city: cityName,
     };
+  }
+
+  // 2. Try Ola Maps with strict city bounding box filter
+  try {
+    const olaResults = await fetchOlaMapsAutocomplete(trimmed, cityName);
+    const bbox = getBoundingBoxForCity(cityName);
+    // Find first Ola result that is strictly inside city bounding box
+    const inCityResult = olaResults.find(
+      (r) =>
+        r.lat >= bbox.minLat &&
+        r.lat <= bbox.maxLat &&
+        r.lon >= bbox.minLon &&
+        r.lon <= bbox.maxLon
+    );
+    if (inCityResult) {
+      return {
+        address: trimmed,
+        lat: inCityResult.lat,
+        lon: inCityResult.lon,
+        displayName: inCityResult.subtitle,
+        city: cityName,
+      };
+    }
+  } catch {
+    console.warn(`[Geocoding] Ola Maps search fallback for "${trimmed}"`);
   }
 
   // 3. Try Nominatim scoped strictly to this city
